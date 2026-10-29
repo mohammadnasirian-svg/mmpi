@@ -1,6 +1,8 @@
-name: mmpi2_pearson_clinical
-description: Professional MMPI-2 Android Assessment
-version: 1.0.0+1
+name: nahira_mmpi
+description: "Nahira MMPI - 3D Clinical MMPI-2 Assessment Platform by Dr. Mohammad Nasirian & Dr. Nabi Tahkohan (Nasirian.com)"
+publish_to: "none"
+version: 2.0.0+2
+
 environment:
   sdk: ">=3.0.0 <4.0.0"
 
@@ -12,13 +14,19 @@ dependencies:
   flutter_bloc: ^8.1.6
   drift: ^2.18.0
   sqlite3_flutter_libs: ^0.5.0
+  fl_chart: ^0.68.0
+  pdf: ^3.11.0
+  printing: ^5.12.0
+  share_plus: ^9.0.0
   http: ^1.2.1
+  flutter_tts: ^4.0.2
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   build_runner: ^2.4.9
   drift_dev: ^2.18.0
+  flutter_lints: ^3.0.0
 
 flutter:
   uses-material-design: true

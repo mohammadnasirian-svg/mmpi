@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../cubits/customization_cubit.dart';
 import '../cubits/assessment_cubit.dart';
+import '../widgets/three_d_widgets.dart';
 import 'report_view.dart';
 
 class RapidEntryConsole extends StatefulWidget {
@@ -13,261 +14,335 @@ class RapidEntryConsole extends StatefulWidget {
 }
 
 class _RapidEntryConsoleState extends State<RapidEntryConsole> {
-  final FocusNode _keyboardFocusNode = FocusNode();
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _keyboardFocusNode.requestFocus();
-    });
-  }
+  final FocusNode _focusNode = FocusNode();
 
   @override
   void dispose() {
-    _keyboardFocusNode.dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 
-  void _handleKeyEvent(KeyEvent event) {
-    if (event is! KeyDownEvent) return;
-
-    final key = event.logicalKey;
-    final cubit = context.read<AssessmentCubit>();
-    final sound = context.read<CustomizationCubit>();
-
-    if (key == LogicalKeyboardKey.keyT || key == LogicalKeyboardKey.numpad1 || key == LogicalKeyboardKey.digit1) {
-      sound.onTherapistRapidKeyTap('T');
-      cubit.answerCurrent('T');
-    } else if (key == LogicalKeyboardKey.keyF || key == LogicalKeyboardKey.numpad2 || key == LogicalKeyboardKey.digit2) {
-      sound.onTherapistRapidKeyTap('F');
-      cubit.answerCurrent('F');
-    } else if (key == LogicalKeyboardKey.keyU || key == LogicalKeyboardKey.numpad0 || key == LogicalKeyboardKey.digit0 || key == LogicalKeyboardKey.space) {
-      sound.onTherapistRapidKeyTap('U');
-      cubit.answerCurrent('U');
-    } else if (key == LogicalKeyboardKey.arrowLeft || key == LogicalKeyboardKey.backspace) {
-      cubit.previousQuestion();
-    } else if (key == LogicalKeyboardKey.arrowRight) {
-      cubit.nextQuestion();
-    }
+  void _recordAnswer(BuildContext context, String ans) {
+    context.read<CustomizationCubit>().onTherapistRapidKeyTap(ans);
+    context.read<AssessmentCubit>().answerCurrent(ans);
   }
 
   @override
   Widget build(BuildContext context) {
-    return KeyboardListener(
-      focusNode: _keyboardFocusNode,
-      autofocus: true,
-      onKeyEvent: _handleKeyEvent,
-      child: BlocBuilder<CustomizationCubit, AppCustomizationState>(
-        builder: (context, customState) {
-          return BlocConsumer<AssessmentCubit, AssessmentState>(
-            listener: (context, assessState) {
-              if (assessState.isCompleted && assessState.scoringResult != null) {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (_) => const ReportView()),
-                );
-              }
-            },
-            builder: (context, state) {
-              final currentNo = state.currentIndex + 1;
-              final prevNo = state.currentIndex > 0 ? state.currentIndex : null;
-              final prevAnswer = prevNo != null ? state.answers[prevNo - 1] : '-';
-              final nextNo = state.currentIndex < state.totalQuestions - 1 ? state.currentIndex + 2 : null;
-              final nextAnswer = nextNo != null ? state.answers[nextNo - 1] : '-';
+    return BlocBuilder<CustomizationCubit, AppCustomizationState>(
+      builder: (context, customState) {
+        final palette = NahiraPalette.fromPreset(customState.visualPreset);
 
-              return Scaffold(
-                backgroundColor: const Color(0xFF141414),
-                appBar: AppBar(
-                  backgroundColor: Colors.black,
-                  elevation: 0,
-                  title: const Text("کنسول ورود سریع درمانگر (Rapid Entry)"),
-                  centerTitle: true,
-                  actions: [
-                    IconButton(
-                      icon: const Icon(Icons.calculate_outlined),
-                      tooltip: "محاسبه نتایج",
-                      onPressed: () {
-                        context.read<AssessmentCubit>().calculateScores();
-                      },
+        return BlocBuilder<AssessmentCubit, AssessmentState>(
+          builder: (context, assessState) {
+            final currentIdx = assessState.currentIndex;
+            final currentQ = assessState.currentQuestion;
+
+            return Directionality(
+              textDirection: TextDirection.rtl,
+              child: KeyboardListener(
+                focusNode: _focusNode,
+                autofocus: true,
+                onKeyEvent: (KeyEvent event) {
+                  if (event is KeyDownEvent) {
+                    if (event.logicalKey == LogicalKeyboardKey.digit1 ||
+                        event.logicalKey == LogicalKeyboardKey.numpad1 ||
+                        event.logicalKey == LogicalKeyboardKey.keyT) {
+                      _recordAnswer(context, 'T');
+                    } else if (event.logicalKey == LogicalKeyboardKey.digit2 ||
+                        event.logicalKey == LogicalKeyboardKey.numpad2 ||
+                        event.logicalKey == LogicalKeyboardKey.keyF) {
+                      _recordAnswer(context, 'F');
+                    } else if (event.logicalKey == LogicalKeyboardKey.digit0 ||
+                        event.logicalKey == LogicalKeyboardKey.space) {
+                      _recordAnswer(context, 'U');
+                    } else if (event.logicalKey == LogicalKeyboardKey.backspace) {
+                      context.read<AssessmentCubit>().previousQuestion();
+                    }
+                  }
+                },
+                child: Scaffold(
+                  body: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [palette.bgTop, palette.bgBottom],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                      ),
                     ),
-                  ],
-                ),
-                body: Column(
-                  children: [
-                    // Top Telemetry Display
-                    Container(
-                      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-                      color: Colors.black,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          _buildMiniIndicator(
-                            label: prevNo != null ? "[$prevNo: $prevAnswer]" : "[--]",
-                            color: Colors.grey,
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: Colors.amber.shade900,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              "◀ سوال $currentNo از ${state.totalQuestions} ▶",
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 1.5,
+                    child: SafeArea(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          children: [
+                            // Top Header 3D Card
+                            Nahira3DCard(
+                              depth: 6,
+                              borderRadius: 20,
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              topColor: palette.cardTop,
+                              bottomColor: palette.cardBottom,
+                              bevelColor: palette.cardBevel,
+                              glowColor: const Color(0xFFF59E0B),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Row(
+                                    children: [
+                                      InkWell(
+                                        onTap: () => Navigator.pop(context),
+                                        child: Icon(Icons.arrow_back_rounded, color: palette.textPrimary),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            "کنسول ثبت سریع کلینیکی (۵ کلیده سه بعدی)",
+                                            style: TextStyle(
+                                              color: palette.textPrimary,
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w900,
+                                            ),
+                                          ),
+                                          Text(
+                                            "مراجع: ${assessState.clientName} | کلیدهای 1 (بلی)، 2 (خیر)، 0 (سفید)",
+                                            style: TextStyle(
+                                              color: palette.textSecondary,
+                                              fontSize: 11,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                    decoration: BoxDecoration(
+                                      color: Colors.amber.withOpacity(0.18),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(color: Colors.amber),
+                                    ),
+                                    child: Text(
+                                      "${assessState.answeredCount} / ${assessState.totalQuestions}",
+                                      style: const TextStyle(
+                                        color: Colors.amber,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12.5,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                          ),
-                          _buildMiniIndicator(
-                            label: nextNo != null ? "[$nextNo: $nextAnswer]" : "[--]",
-                            color: Colors.grey,
-                          ),
-                        ],
-                      ),
-                    ),
+                            const SizedBox(height: 14),
 
-                    // Active question summary preview
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(12),
-                      color: const Color(0xFF222222),
-                      child: Text(
-                        state.currentQuestion.textFa,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: Colors.white70, fontSize: 16),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
+                            // Sliding Ribbon of Recent Answers
+                            SizedBox(
+                              height: 54,
+                              child: ListView.builder(
+                                scrollDirection: Axis.horizontal,
+                                itemCount: assessState.totalQuestions,
+                                itemBuilder: (context, idx) {
+                                  final ans = assessState.answers[idx];
+                                  final isCurrent = idx == currentIdx;
+                                  Color badgeColor = Colors.white10;
+                                  if (ans == 'T') badgeColor = const Color(0xFF059669);
+                                  if (ans == 'F') badgeColor = const Color(0xFFE11D48);
 
-                    // Main Split Touch Zones (F / T)
-                    Expanded(
-                      child: Row(
-                        children: [
-                          // False Zone (Red)
-                          Expanded(
-                            child: GestureDetector(
-                              onTapDown: (_) {
-                                context.read<CustomizationCubit>().onTherapistRapidKeyTap('F');
-                                context.read<AssessmentCubit>().answerCurrent('F');
-                              },
-                              child: Container(
-                                color: const Color(0xFFB71C1C),
-                                child: const Center(
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
+                                  return GestureDetector(
+                                    onTap: () => context.read<AssessmentCubit>().jumpToQuestion(idx),
+                                    child: Container(
+                                      width: 50,
+                                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                                      decoration: BoxDecoration(
+                                        color: badgeColor,
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: isCurrent
+                                            ? Border.all(color: Colors.amberAccent, width: 2.5)
+                                            : Border.all(color: Colors.white12),
+                                      ),
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Text(
+                                            "#${idx + 1}",
+                                            style: const TextStyle(color: Colors.white70, fontSize: 10),
+                                          ),
+                                          Text(
+                                            ans == 'T'
+                                                ? 'بلی'
+                                                : ans == 'F'
+                                                    ? 'خیر'
+                                                    : '-',
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+
+                            // Central 3D Digital Counter & Question Preview
+                            Expanded(
+                              flex: 4,
+                              child: Nahira3DCard(
+                                depth: 9,
+                                tiltX: 0.015,
+                                borderRadius: 26,
+                                topColor: palette.cardTop,
+                                bottomColor: palette.cardBottom,
+                                bevelColor: palette.cardBevel,
+                                glowColor: palette.accentPrimary,
+                                padding: const EdgeInsets.all(20),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      "شماره ردیف پاسخبرگ کاغذی",
+                                      style: TextStyle(color: palette.textSecondary, fontSize: 13),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      "${currentIdx + 1}",
+                                      style: const TextStyle(
+                                        fontSize: 64,
+                                        fontWeight: FontWeight.w900,
+                                        color: Color(0xFF38BDF8),
+                                        height: 1.05,
+                                        shadows: [
+                                          Shadow(
+                                            color: Color(0x6606B6D4),
+                                            blurRadius: 18,
+                                            offset: Offset(0, 4),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Text(
+                                      currentQ.text,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        color: palette.textPrimary,
+                                        fontSize: 14.5,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+
+                            // 3D Mechanical Tactile Keypad
+                            Expanded(
+                              flex: 5,
+                              child: Column(
+                                children: [
+                                  Expanded(
+                                    flex: 3,
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: Nahira3DButton(
+                                            label: "بلی (درست)",
+                                            sublabel: "کلید 1 یا T",
+                                            icon: Icons.check_circle_rounded,
+                                            primaryColor: const Color(0xFF059669),
+                                            darkBevelColor: const Color(0xFF064E3B),
+                                            height: 110,
+                                            fontSize: 22,
+                                            onTap: () => _recordAnswer(context, 'T'),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 14),
+                                        Expanded(
+                                          child: Nahira3DButton(
+                                            label: "خیر (غلط)",
+                                            sublabel: "کلید 2 یا F",
+                                            icon: Icons.cancel_rounded,
+                                            primaryColor: const Color(0xFFE11D48),
+                                            darkBevelColor: const Color(0xFF881337),
+                                            height: 110,
+                                            fontSize: 22,
+                                            onTap: () => _recordAnswer(context, 'F'),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Row(
                                     children: [
-                                      Icon(Icons.close, color: Colors.white, size: 72),
-                                      SizedBox(height: 12),
-                                      Text(
-                                        "غلط (F)\n[کلید 2]",
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 28,
-                                          fontWeight: FontWeight.bold,
+                                      Expanded(
+                                        child: Nahira3DButton(
+                                          label: "سفید (؟)",
+                                          sublabel: "کلید 0 / Space",
+                                          primaryColor: const Color(0xFF475569),
+                                          darkBevelColor: const Color(0xFF1E293B),
+                                          height: 56,
+                                          fontSize: 14,
+                                          onTap: () => _recordAnswer(context, 'U'),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Nahira3DButton(
+                                          label: "اصلاح قبلی",
+                                          sublabel: "Backspace",
+                                          icon: Icons.undo_rounded,
+                                          primaryColor: const Color(0xFFD97706),
+                                          darkBevelColor: const Color(0xFF78350F),
+                                          height: 56,
+                                          fontSize: 14,
+                                          onTap: () => context.read<AssessmentCubit>().previousQuestion(),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Nahira3DButton(
+                                          label: "صدور کارنامه",
+                                          sublabel: "تحلیل پیرسون",
+                                          icon: Icons.assessment_rounded,
+                                          primaryColor: const Color(0xFF4F46E5),
+                                          darkBevelColor: const Color(0xFF312E81),
+                                          height: 56,
+                                          fontSize: 14,
+                                          onTap: () {
+                                            context.read<AssessmentCubit>().calculateScores();
+                                            Navigator.pushReplacement(
+                                              context,
+                                              MaterialPageRoute(builder: (_) => const ReportView()),
+                                            );
+                                          },
                                         ),
                                       ),
                                     ],
                                   ),
-                                ),
+                                ],
                               ),
                             ),
-                          ),
-
-                          // True Zone (Green)
-                          Expanded(
-                            child: GestureDetector(
-                              onTapDown: (_) {
-                                context.read<CustomizationCubit>().onTherapistRapidKeyTap('T');
-                                context.read<AssessmentCubit>().answerCurrent('T');
-                              },
-                              child: Container(
-                                color: const Color(0xFF1B5E20),
-                                child: const Center(
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(Icons.check, color: Colors.white, size: 72),
-                                      SizedBox(height: 12),
-                                      Text(
-                                        "درست (T)\n[کلید 1]",
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 28,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
-
-                    // Bottom Toolbar (Correction, Uncertain, Jump)
-                    Container(
-                      height: 84,
-                      color: Colors.black,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(backgroundColor: Colors.blueGrey.shade800),
-                            onPressed: () => context.read<AssessmentCubit>().previousQuestion(),
-                            icon: const Icon(Icons.undo),
-                            label: const Text("قبلی (اصلاح)"),
-                          ),
-                          GestureDetector(
-                            onTap: () {
-                              context.read<CustomizationCubit>().onTherapistRapidKeyTap('U');
-                              context.read<AssessmentCubit>().answerCurrent('U');
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
-                              decoration: BoxDecoration(
-                                color: Colors.orange.shade800,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: const Text(
-                                "مبهم / خالی (?)\n[کلید 0 یا Space]",
-                                textAlign: TextAlign.center,
-                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                          ),
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(backgroundColor: Colors.blueGrey.shade800),
-                            onPressed: () => context.read<AssessmentCubit>().nextQuestion(),
-                            icon: const Icon(Icons.redo),
-                            label: const Text("رد کردن"),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              );
-            },
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildMiniIndicator({required String label, required Color color}) {
-    return Text(
-      label,
-      style: TextStyle(color: color, fontSize: 16, fontFamily: 'monospace'),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

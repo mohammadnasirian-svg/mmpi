@@ -5,7 +5,7 @@ class QuestionItem {
   final List<String> falseScales;
   final String? criticalCategory;
 
-  QuestionItem({
+  const QuestionItem({
     required this.id,
     required this.textFa,
     required this.trueScales,

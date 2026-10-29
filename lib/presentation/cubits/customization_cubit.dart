@@ -6,16 +6,16 @@ class AppCustomizationState {
   final String fontFamily;
   final double questionFontSize;
   final double lineHeight;
-  final String visualPreset; // 'daylight', 'sepia_warm', 'slate_dark', 'amoled_black'
+  final String visualPreset; // 'royal_3d', 'sepia_warm', 'daylight', 'amoled_black'
   final bool isLeftHanded;
   final bool enableAudioBeep;
   final bool enableTtsReader;
 
   const AppCustomizationState({
-    this.fontFamily = 'Vazirmatn',
-    this.questionFontSize = 20.0,
-    this.lineHeight = 1.7,
-    this.visualPreset = 'sepia_warm',
+    this.fontFamily = 'Roboto',
+    this.questionFontSize = 21.0,
+    this.lineHeight = 1.75,
+    this.visualPreset = 'royal_3d',
     this.isLeftHanded = false,
     this.enableAudioBeep = true,
     this.enableTtsReader = false,

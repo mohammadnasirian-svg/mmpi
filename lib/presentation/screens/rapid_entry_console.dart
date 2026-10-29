@@ -32,6 +32,8 @@ class _RapidEntryConsoleState extends State<RapidEntryConsole> {
     return BlocBuilder<CustomizationCubit, AppCustomizationState>(
       builder: (context, customState) {
         final palette = NahiraPalette.fromPreset(customState.visualPreset);
+        final s = customState.strings;
+        final isEn = customState.isEn;
 
         return BlocBuilder<AssessmentCubit, AssessmentState>(
           builder: (context, assessState) {
@@ -39,7 +41,7 @@ class _RapidEntryConsoleState extends State<RapidEntryConsole> {
             final currentQ = assessState.currentQuestion;
 
             return Directionality(
-              textDirection: TextDirection.rtl,
+              textDirection: isEn ? TextDirection.ltr : TextDirection.rtl,
               child: KeyboardListener(
                 focusNode: _focusNode,
                 autofocus: true,
@@ -77,8 +79,8 @@ class _RapidEntryConsoleState extends State<RapidEntryConsole> {
                           children: [
                             // Top Header 3D Card
                             Nahira3DCard(
-                              depth: 6,
-                              borderRadius: 20,
+                              depth: 5,
+                              borderRadius: 18,
                               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                               topColor: palette.cardTop,
                               bottomColor: palette.cardBottom,
@@ -94,25 +96,13 @@ class _RapidEntryConsoleState extends State<RapidEntryConsole> {
                                         child: Icon(Icons.arrow_back_rounded, color: palette.textPrimary),
                                       ),
                                       const SizedBox(width: 10),
-                                      Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            "کنسول ثبت سریع کلینیکی (۵ کلیده سه بعدی)",
-                                            style: TextStyle(
-                                              color: palette.textPrimary,
-                                              fontSize: 15,
-                                              fontWeight: FontWeight.w900,
-                                            ),
-                                          ),
-                                          Text(
-                                            "مراجع: ${assessState.clientName} | کلیدهای 1 (بلی)، 2 (خیر)، 0 (سفید)",
-                                            style: TextStyle(
-                                              color: palette.textSecondary,
-                                              fontSize: 11,
-                                            ),
-                                          ),
-                                        ],
+                                      Text(
+                                        s.rapidConsoleHeader,
+                                        style: TextStyle(
+                                          color: palette.textPrimary,
+                                          fontSize: 15.5,
+                                          fontWeight: FontWeight.w900,
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -137,7 +127,7 @@ class _RapidEntryConsoleState extends State<RapidEntryConsole> {
                             ),
                             const SizedBox(height: 14),
 
-                            // Sliding Ribbon of Recent Answers
+                            // Sliding Ribbon of Answers
                             SizedBox(
                               height: 54,
                               child: ListView.builder(
@@ -153,13 +143,13 @@ class _RapidEntryConsoleState extends State<RapidEntryConsole> {
                                   return GestureDetector(
                                     onTap: () => context.read<AssessmentCubit>().jumpToQuestion(idx),
                                     child: Container(
-                                      width: 50,
+                                      width: 52,
                                       margin: const EdgeInsets.symmetric(horizontal: 4),
                                       decoration: BoxDecoration(
                                         color: badgeColor,
                                         borderRadius: BorderRadius.circular(12),
                                         border: isCurrent
-                                            ? Border.all(color: Colors.amberAccent, width: 2.5)
+                                            ? Border.all(color: Colors.amberAccent, width: 2.2)
                                             : Border.all(color: Colors.white12),
                                       ),
                                       child: Column(
@@ -171,14 +161,14 @@ class _RapidEntryConsoleState extends State<RapidEntryConsole> {
                                           ),
                                           Text(
                                             ans == 'T'
-                                                ? 'بلی'
+                                                ? s.trueAnswerBtn
                                                 : ans == 'F'
-                                                    ? 'خیر'
+                                                    ? s.falseAnswerBtn
                                                     : '-',
                                             style: const TextStyle(
                                               color: Colors.white,
                                               fontWeight: FontWeight.bold,
-                                              fontSize: 12,
+                                              fontSize: 11.5,
                                             ),
                                           ),
                                         ],
@@ -193,42 +183,29 @@ class _RapidEntryConsoleState extends State<RapidEntryConsole> {
                             // Central 3D Digital Counter & Question Preview
                             Expanded(
                               flex: 4,
-                              child: Nahira3DCard(
-                                depth: 9,
-                                tiltX: 0.015,
-                                borderRadius: 26,
-                                topColor: palette.cardTop,
-                                bottomColor: palette.cardBottom,
-                                bevelColor: palette.cardBevel,
-                                glowColor: palette.accentPrimary,
+                              child: NahiraInteractive3DCard(
+                                palette: palette,
                                 padding: const EdgeInsets.all(20),
                                 child: Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     Text(
-                                      "شماره ردیف پاسخبرگ کاغذی",
+                                      s.rapidRowNumber,
                                       style: TextStyle(color: palette.textSecondary, fontSize: 13),
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
                                       "${currentIdx + 1}",
                                       style: const TextStyle(
-                                        fontSize: 64,
+                                        fontSize: 60,
                                         fontWeight: FontWeight.w900,
                                         color: Color(0xFF38BDF8),
                                         height: 1.05,
-                                        shadows: [
-                                          Shadow(
-                                            color: Color(0x6606B6D4),
-                                            blurRadius: 18,
-                                            offset: Offset(0, 4),
-                                          ),
-                                        ],
                                       ),
                                     ),
                                     const SizedBox(height: 10),
                                     Text(
-                                      currentQ.text,
+                                      currentQ.localizedText(isEn),
                                       maxLines: 2,
                                       overflow: TextOverflow.ellipsis,
                                       textAlign: TextAlign.center,
@@ -255,26 +232,26 @@ class _RapidEntryConsoleState extends State<RapidEntryConsole> {
                                       children: [
                                         Expanded(
                                           child: Nahira3DButton(
-                                            label: "بلی (درست)",
-                                            sublabel: "کلید 1 یا T",
+                                            label: s.trueAnswerBtn,
+                                            sublabel: s.trueAnswerSub,
                                             icon: Icons.check_circle_rounded,
                                             primaryColor: const Color(0xFF059669),
                                             darkBevelColor: const Color(0xFF064E3B),
-                                            height: 110,
-                                            fontSize: 22,
+                                            height: 106,
+                                            fontSize: 21,
                                             onTap: () => _recordAnswer(context, 'T'),
                                           ),
                                         ),
                                         const SizedBox(width: 14),
                                         Expanded(
                                           child: Nahira3DButton(
-                                            label: "خیر (غلط)",
-                                            sublabel: "کلید 2 یا F",
+                                            label: s.falseAnswerBtn,
+                                            sublabel: s.falseAnswerSub,
                                             icon: Icons.cancel_rounded,
                                             primaryColor: const Color(0xFFE11D48),
                                             darkBevelColor: const Color(0xFF881337),
-                                            height: 110,
-                                            fontSize: 22,
+                                            height: 106,
+                                            fontSize: 21,
                                             onTap: () => _recordAnswer(context, 'F'),
                                           ),
                                         ),
@@ -286,38 +263,35 @@ class _RapidEntryConsoleState extends State<RapidEntryConsole> {
                                     children: [
                                       Expanded(
                                         child: Nahira3DButton(
-                                          label: "سفید (؟)",
-                                          sublabel: "کلید 0 / Space",
+                                          label: s.rapidBlankBtn,
                                           primaryColor: const Color(0xFF475569),
                                           darkBevelColor: const Color(0xFF1E293B),
-                                          height: 56,
-                                          fontSize: 14,
+                                          height: 54,
+                                          fontSize: 13.5,
                                           onTap: () => _recordAnswer(context, 'U'),
                                         ),
                                       ),
                                       const SizedBox(width: 10),
                                       Expanded(
                                         child: Nahira3DButton(
-                                          label: "اصلاح قبلی",
-                                          sublabel: "Backspace",
+                                          label: s.rapidUndoBtn,
                                           icon: Icons.undo_rounded,
                                           primaryColor: const Color(0xFFD97706),
                                           darkBevelColor: const Color(0xFF78350F),
-                                          height: 56,
-                                          fontSize: 14,
+                                          height: 54,
+                                          fontSize: 13.5,
                                           onTap: () => context.read<AssessmentCubit>().previousQuestion(),
                                         ),
                                       ),
                                       const SizedBox(width: 10),
                                       Expanded(
                                         child: Nahira3DButton(
-                                          label: "صدور کارنامه",
-                                          sublabel: "تحلیل پیرسون",
+                                          label: s.rapidAnalyzeBtn,
                                           icon: Icons.assessment_rounded,
                                           primaryColor: const Color(0xFF4F46E5),
                                           darkBevelColor: const Color(0xFF312E81),
-                                          height: 56,
-                                          fontSize: 14,
+                                          height: 54,
+                                          fontSize: 13.5,
                                           onTap: () {
                                             context.read<AssessmentCubit>().calculateScores();
                                             Navigator.pushReplacement(

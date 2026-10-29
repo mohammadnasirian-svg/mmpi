@@ -1,15 +1,16 @@
 import 'package:flutter/services.dart';
 
 class SoundService {
-  static void playTone({required int freqHz, required int durationMs}) {
-    // Auditory feedback for rapid entry
-    // On mobile devices, system haptic / click sounds can accompany or represent tones
-    if (freqHz >= 800) {
+  static const MethodChannel _channel = MethodChannel('nahira.mmpi/audio');
+
+  static Future<void> playTone({required int freqHz, required int durationMs}) async {
+    try {
+      await _channel.invokeMethod('playTone', {
+        'freqHz': freqHz,
+        'durationMs': durationMs,
+      });
+    } catch (_) {
       SystemSound.play(SystemSoundType.click);
-    } else if (freqHz >= 450) {
-      SystemSound.play(SystemSoundType.alert);
-    } else {
-      HapticFeedback.heavyImpact();
     }
   }
 }

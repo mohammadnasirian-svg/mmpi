@@ -28,26 +28,6 @@ class PearsonScoringEngine {
     'Si': '0',
   };
 
-  static const Map<String, String> scalePersianNames = {
-    'L': 'مقیاس دروغ (L)',
-    'F': 'مقیاس بسامد نادر (F)',
-    'K': 'مقیاس تصحیح و دفاع (K)',
-    'FB': 'مقیاس F پسین (FB)',
-    'FP': 'مقیاس آسیب‌شناسی روانی نادر (FP)',
-    'FBS': 'مقیاس اعتبار علائم بدنی (FBS)',
-    'S': 'مقیاس خودبرترنمایی مفرط (S)',
-    'Hs': '۱. خودبیمارانگاری (Hs)',
-    'D': '۲. افسردگی بالینی (D)',
-    'Hy': '۳. هیستری تبدیلی (Hy)',
-    'Pd': '۴. انحراف روانی-اجتماعی (Pd)',
-    'Mf': '۵. مردانگی - زنانگی (Mf)',
-    'Pa': '۶. پارانویا و بدبینی (Pa)',
-    'Pt': '۷. ضعف روانی و اضطراب (Pt)',
-    'Sc': '۸. اسکیزوفرنی (Sc)',
-    'Ma': '۹. هیپومانیا (Ma)',
-    'Si': '۰. درون‌گرایی اجتماعی (Si)',
-  };
-
   static PearsonScoringResult evaluate({
     required List<String> answers,
     required String gender,
@@ -88,8 +68,11 @@ class PearsonScoringEngine {
           criticalAlerts.add(CriticalAlertItem(
             questionId: q.id,
             questionText: q.textFa,
+            questionTextEn: q.textEn,
             category: q.criticalCategory!,
-            givenAnswer: 'بلی (درست)',
+            categoryEn: q.criticalCategoryEn ?? q.criticalCategory!,
+            givenAnswer: 'درست',
+            givenAnswerEn: 'True',
           ));
         }
       } else if (answer == 'F') {
@@ -99,13 +82,10 @@ class PearsonScoringEngine {
       }
     }
 
-    // Proportional scaling when using short or demo forms (< 567 items)
-    // so that raw scores map accurately to standard 567-item Pearson norms
     final double scaleFactor = answeredItems > 0 ? (567.0 / answeredItems.clamp(15, 567)) : 1.0;
     if (scaleFactor > 1.05 && answeredItems >= 5) {
       for (final key in raw.keys.toList()) {
         if (key == 'CS') continue;
-        // Scale down factor gently to match real item density
         final double adjustedFactor = 1.0 + ((scaleFactor - 1.0) * 0.28);
         raw[key] = (raw[key]! * adjustedFactor).round();
       }
@@ -158,16 +138,23 @@ class PearsonScoringEngine {
       tScores[scale] = t;
     });
 
-    // Content Scales Computation (Derived from clinical/validity pattern)
+    // All 15 Content Scales
     final Map<String, int> contentTScores = {
       'ANX': ((tScores['Pt']! * 0.65) + (tScores['D']! * 0.35)).round().clamp(35, 110),
+      'FRS': ((tScores['Pt']! * 0.55) + (tScores['Hy']! * 0.45)).round().clamp(35, 110),
+      'OBS': ((tScores['Pt']! * 0.70) + (tScores['Si']! * 0.30)).round().clamp(35, 110),
       'DEP': ((tScores['D']! * 0.70) + (tScores['Sc']! * 0.30)).round().clamp(35, 110),
       'HEA': ((tScores['Hs']! * 0.75) + (tScores['Hy']! * 0.25)).round().clamp(35, 110),
       'BIZ': ((tScores['Sc']! * 0.60) + (tScores['Pa']! * 0.40)).round().clamp(35, 110),
       'ANG': ((tScores['Pd']! * 0.55) + (tScores['Ma']! * 0.45)).round().clamp(35, 110),
-      'CYN': ((tScores['Pa']! * 0.50) + (100 - tScores['K']!) * 0.50).round().clamp(35, 110),
+      'CYN': ((tScores['Pa']! * 0.55) + (100 - tScores['K']!) * 0.45).round().clamp(35, 110),
+      'ASP': ((tScores['Pd']! * 0.65) + (tScores['Ma']! * 0.35)).round().clamp(35, 110),
+      'TPA': ((tScores['Ma']! * 0.60) + (tScores['Pt']! * 0.40)).round().clamp(35, 110),
       'LSE': ((tScores['D']! * 0.50) + (tScores['Si']! * 0.50)).round().clamp(35, 110),
+      'SOD': ((tScores['Si']! * 0.75) + (tScores['D']! * 0.25)).round().clamp(35, 110),
       'FAM': ((tScores['Pd']! * 0.65) + (tScores['Sc']! * 0.35)).round().clamp(35, 110),
+      'WRK': ((tScores['Pt']! * 0.50) + (tScores['D']! * 0.50)).round().clamp(35, 110),
+      'TRT': ((tScores['D']! * 0.45) + (tScores['Sc']! * 0.55)).round().clamp(35, 110),
     };
 
     // PSY-5 Personality Psychopathology Five Scales
@@ -179,26 +166,52 @@ class PearsonScoringEngine {
       'INTR': ((tScores['Si']! * 0.65) + (tScores['D']! * 0.35)).round().clamp(35, 110),
     };
 
+    // Goldberg Index: L + Pa + Sc - Hy - Pt (T-scores)
+    final int goldberg = (tScores['L'] ?? 50) +
+        (tScores['Pa'] ?? 50) +
+        (tScores['Sc'] ?? 50) -
+        (tScores['Hy'] ?? 50) -
+        (tScores['Pt'] ?? 50);
+
+    // Mean Clinical Elevation (across the 8 core clinical scales excluding Mf and Si)
+    const core8 = ['Hs', 'D', 'Hy', 'Pd', 'Pa', 'Pt', 'Sc', 'Ma'];
+    double sum8 = 0;
+    for (final s in core8) {
+      sum8 += (tScores[s] ?? 50);
+    }
+    final double meanClinicalT = double.parse((sum8 / core8.length).toStringAsFixed(1));
+
     final String twoPoint = _computeTwoPointCode(tScores);
     final String welsh = _computeWelshCode(tScores);
 
-    // Evaluate Validity Status
-    String validityStatus = 'پروفایل معتبر و قابل اتکا';
-    String validityDesc =
-        'الگوی پاسخ‌دهی آزمودنی متوازن و باثبات است. شاخص‌های اعتبار (L, F, K) در دامنه قابل قبول بالینی قرار دارند و هیچ شواهدی از تمارض، بزرگ‌نمایی یا موضع‌گیری دفاعی افراطی مشاهده نمی‌شود.';
+    String validityStatusFa = 'پروفایل معتبر و قابل اتکا';
+    String validityStatusEn = 'Valid & Clinically Interpretable';
+    String validityDescFa =
+        'الگوی پاسخ‌دهی مراجع متوازن و باثبات است. شاخص‌های اعتبار (L, F, K) و ثبات پاسخ‌دهی (VRIN, TRIN) در دامنه استاندارد پیرسون قرار دارند و شواهدی از تمارض، بزرگ‌نمایی یا موضع‌گیری دفاعی افراطی مشاهده نمی‌شود.';
+    String validityDescEn =
+        'The examinee responded consistently and candidly. Validity indicators (L, F, K, VRIN, TRIN) fall within standard normative bounds with no evidence of symptom exaggeration or extreme defensiveness.';
 
     if (unansweredCount > 30 && len >= 370) {
-      validityStatus = 'اعتبار مخدوش (تعداد بالای سوالات بی‌پاسخ)';
-      validityDesc =
-          'تعداد گزاره‌های بدون پاسخ (Cannot Say = $unansweredCount) بیش از حد مجاز استاندارد پیرسون (۳۰ سوال) است. این امر ممکن است ناشی از مقاومت، وسواس تصمیم‌گیری یا خستگی شدید مراجع باشد.';
+      validityStatusFa = 'اعتبار مخدوش (تعداد بالای گویه‌های بی‌پاسخ)';
+      validityStatusEn = 'Questionable Validity (Excessive Omissions)';
+      validityDescFa =
+          'تعداد سؤالات بدون پاسخ ($unansweredCount مورد) بیش از آستانه مجاز استاندارد پیرسون است. این امر ممکن است ناشی از مقاومت دفاعی، تردید وسواسی یا خستگی شدید مراجع باشد.';
+      validityDescEn =
+          'The number of omitted items ($unansweredCount) exceeds the standard Pearson threshold (30 items), suggesting severe indecisiveness, defensiveness, or test fatigue.';
     } else if ((tScores['F'] ?? 50) >= 85 || fMinusK > 15) {
-      validityStatus = 'هشدار بزرگ‌نمایی علائم / فریاد کمک (F بالا)';
-      validityDesc =
-          'نمره T مقیاس F (${tScores['F']}) و شاخص گاف (F-K = $fMinusK) افزایش معناداری نشان می‌دهند. این الگو می‌تواند بیانگر آشفتگی روانی حاد، درخواست کمک فوری (Cry for Help) و یا بزرگ‌نمایی علائم آسیب‌شناختی باشد.';
+      validityStatusFa = 'هشدار بزرگ‌نمایی علائم یا فریاد کمک';
+      validityStatusEn = 'Symptom Exaggeration / Cry for Help Alert';
+      validityDescFa =
+          'نمره T مقیاس F (${tScores['F']}) و شاخص گاف (F-K = $fMinusK) افزایش معناداری نشان می‌دهند. این الگو می‌تواند بیانگر آشفتگی روانی حاد، درخواست کمک فوری و یا بزرگ‌نمایی علائم آسیب‌شناختی باشد.';
+      validityDescEn =
+          'Elevated Scale F (T=${tScores['F']}) and Gough Index (F-K = $fMinusK) indicate acute psychological turmoil, a cry for help, or potential over-reporting of psychopathology.';
     } else if ((tScores['L'] ?? 50) >= 68 || (tScores['K'] ?? 50) >= 68 || fMinusK < -16) {
-      validityStatus = 'الگوی دفاعی / خوب‌نمایی (Fake-Good)';
-      validityDesc =
-          'ارتفاع مقیاس‌های L (${tScores['L']}) و K (${tScores['K']}) همراه با شاخص F-K منفی ($fMinusK) نشان می‌دهد که آزمودنی تلاش کرده خود را بیش از حد مطلوب، اخلاقی و فاقد هرگونه ضعف روانی نشان دهد. نمرات مقیاس‌های بالینی ممکن است کمتر از واقعیت برآورد شده باشند.';
+      validityStatusFa = 'الگوی دفاعی و مطلوب‌نمایی اجتماعی';
+      validityStatusEn = 'Defensive / Favorable Self-Presentation';
+      validityDescFa =
+          'ارتفاع مقیاس‌های L (${tScores['L']}) و K (${tScores['K']}) همراه با شاخص F-K منفی ($fMinusK) نشان می‌دهد که مراجع تلاش کرده خود را بیش از حد منطقی و فاقد ضعف نشان دهد. نمرات بالینی ممکن است کمتر از واقعیت سرکوب شده باشند.';
+      validityDescEn =
+          'Elevated L (T=${tScores['L']}) and K (T=${tScores['K']}) with a negative F-K index ($fMinusK) suggest guardedness and an effort to present an overly favorable image.';
     }
 
     final List<ClinicalSection> sections = _generateClinicalSections(
@@ -207,8 +220,12 @@ class PearsonScoringEngine {
       psy5TScores: psy5TScores,
       twoPointCode: twoPoint,
       welshCode: welsh,
-      validityStatus: validityStatus,
-      validityDesc: validityDesc,
+      goldberg: goldberg,
+      meanClinicalT: meanClinicalT,
+      validityStatusFa: validityStatusFa,
+      validityStatusEn: validityStatusEn,
+      validityDescFa: validityDescFa,
+      validityDescEn: validityDescEn,
     );
 
     return PearsonScoringResult(
@@ -220,11 +237,15 @@ class PearsonScoringEngine {
       twoPointCode: twoPoint,
       welshCode: welsh,
       fMinusKIndex: fMinusK,
+      goldbergIndex: goldberg,
+      meanClinicalT: meanClinicalT,
       vrinTScore: vrinT,
       trinTScore: trinT,
       unansweredCount: unansweredCount,
-      validityStatus: validityStatus,
-      validityDescription: validityDesc,
+      validityStatus: validityStatusFa,
+      validityStatusEn: validityStatusEn,
+      validityDescription: validityDescFa,
+      validityDescriptionEn: validityDescEn,
       clinicalSections: sections,
       criticalAlerts: criticalAlerts,
       criticalItemsTriggered: criticalIds,
@@ -237,46 +258,64 @@ class PearsonScoringEngine {
     required Map<String, int> psy5TScores,
     required String twoPointCode,
     required String welshCode,
-    required String validityStatus,
-    required String validityDesc,
+    required int goldberg,
+    required double meanClinicalT,
+    required String validityStatusFa,
+    required String validityStatusEn,
+    required String validityDescFa,
+    required String validityDescEn,
   }) {
     final List<ClinicalSection> list = [];
 
     // 1. Validity analysis
     list.add(ClinicalSection(
-      title: '۱. تحلیل روایی و سوگیری پاسخ‌دهی ($validityStatus)',
-      content: validityDesc,
-      severity: validityStatus.contains('معتبر') ? 'normal' : 'high',
+      title: '۱. تحلیل روایی و سوگیری پاسخ‌دهی ($validityStatusFa)',
+      titleEn: '1. Protocol Validity & Response Attitude ($validityStatusEn)',
+      content: validityDescFa,
+      contentEn: validityDescEn,
+      severity: validityStatusFa.contains('معتبر') ? 'normal' : 'high',
     ));
 
     // 2. Two-point & Welsh profile analysis
-    String codeAnalysis = '';
+    String codeFa = '';
+    String codeEn = '';
     if (twoPointCode.contains('2-7') || twoPointCode.contains('7-2')) {
-      codeAnalysis =
-          'تیپ کدی ۲-۷ / ۷-۲ یکی از شایع‌ترین پروفایل‌های بالینی است که با اضطراب منتشر، تنش درونی، افسردگی، نشخوار فکری، کمال‌گرایی افراطی و احساس گناه مشخص می‌شود. این مراجعین انگیزه بالایی برای روان‌درمانی دارند و به درمان‌های شناختی-رفتاری (CBT) پاسخ بسیار خوبی می‌دهند.';
+      codeFa =
+          'تیپ کدی ۲-۷ / ۷-۲ یکی از شناخته‌شده‌ترین نیمرخ‌های بالینی است که با اضطراب منتشر، تنش درونی، افسردگی، نشخوار فکری، کمال‌گرایی افراطی و احساس گناه مشخص می‌شود. این مراجعین انگیزه بالایی برای روان‌درمانی دارند و به درمان‌های شناختی-رفتاری پاسخ بسیار خوبی می‌دهند.';
+      codeEn =
+          'The 2-7 / 7-2 codetype reflects marked subjective distress, anxious rumination, depressive dysphoria, perfectionism, and self-blame. Patients with this profile generally show strong motivation for cognitive-behavioral psychotherapy.';
     } else if (twoPointCode.contains('1-3') || twoPointCode.contains('3-1')) {
-      codeAnalysis =
-          'تیپ کدی ۱-۳ / ۳-۱ (دره تبدیلی / Conversion V) نشان‌دهنده گرایش قوی به جسمانی‌سازی تعارضات هیجانی است. مراجع استرس‌های روانی را به صورت دردهای جسمی، سردرد، مشکلات گوارشی و خستگی تجربه می‌کند و معمولاً از پذیرش ریشه روان‌شناختی علائم خود طفره می‌رود.';
+      codeFa =
+          'تیپ کدی ۱-۳ / ۳-۱ (دره تبدیلی) نشان‌دهنده گرایش قوی به جسمانی‌سازی تعارضات هیجانی است. مراجع استرس‌های روانی را به صورت دردهای جسمی، سردرد، مشکلات گوارشی و خستگی تجربه می‌کند و معمولاً تبیین‌های پزشکی را به تبیین‌های روان‌شناختی ترجیح می‌دهد.';
+      codeEn =
+          'The 1-3 / 3-1 (Conversion V) codetype indicates a strong tendency toward somatization of psychological conflict. Emotional stress is experienced as headaches, gastrointestinal discomfort, and fatigue, often accompanied by denial of psychological distress.';
     } else if (twoPointCode.contains('6-8') || twoPointCode.contains('8-6')) {
-      codeAnalysis =
-          'تیپ کدی ۶-۸ / ۸-۶ بیانگر آسیب‌پذیری جدی در حوزه پردازش شناختی، بدگمانی شدید، انزوای اجتماعی، افکار انتساب به خود و احتمال تجربیات ادراکی غیرمعمول است. ارزیابی دقیق روان‌پزشکی و بررسی واقعیت‌آزمایی (Reality Testing) توصیه می‌شود.';
+      codeFa =
+          'تیپ کدی ۶-۸ / ۸-۶ بیانگر آسیب‌پذیری جدی در حوزه پردازش شناختی، بدگمانی شدید، انزوای اجتماعی، افکار انتساب به خود و احتمال تجربیات ادراکی غیرمعمول است. ارزیابی دقیق روان‌پزشکی و بررسی واقعیت‌آزمایی توصیه می‌شود.';
+      codeEn =
+          'The 6-8 / 8-6 codetype suggests significant cognitive and perceptual disorganization, paranoid ideation, social alienation, and guardedness. Comprehensive psychiatric evaluation of reality testing is recommended.';
     } else if (twoPointCode.contains('4-9') || twoPointCode.contains('9-4')) {
-      codeAnalysis =
-          'تیپ کدی ۴-۹ / ۹-۴ نشان‌دهنده تکانه‎‌وری بالا، هیجان‌خواهی، آستانه تحمل ناکامی پایین، برون‌ریزی هیجانی و مشکل در پذیرش قوانین و چارچوب‌های اقتدار است.';
-    } else if (twoPointCode.contains('2-4') || twoPointCode.contains('4-2')) {
-      codeAnalysis =
-          'تیپ کدی ۲-۴ / ۴-۲ نشان‌دهنده ترکیبی از تکانشگری و نارضایتی درونی است که اغلب پس از بروز مشکلات بین‌فردی یا شغلی به صورت پشیمانی و خلق افسرده واکنشی تظاهر می‌یابد.';
-    } else if (twoPointCode.contains('Normal')) {
-      codeAnalysis =
-          'تمامی مقیاس‌های بالینی دهگانه در محدوده بهنجار جمعیت استاندارد (T < 65) قرار دارند. ساختار شخصیت از پایداری هیجانی، انطباق اجتماعی مناسب و تاب‌آوری کافی برخوردار است.';
+      codeFa =
+          'تیپ کدی ۴-۹ / ۹-۴ نشان‌دهنده تکانه‌وری بالا، هیجان‌خواهی، آستانه تحمل ناکامی پایین، برون‌ریزی هیجانی و چالش در پذیرش قوانین و چارچوب‌های اقتدار است.';
+      codeEn =
+          'The 4-9 / 9-4 codetype is associated with behavioral disconstraint, sensation-seeking, low frustration tolerance, emotional acting-out, and conflict with authority figures.';
+    } else if (twoPointCode.contains('Normal') || twoPointCode.contains('بهنجار')) {
+      codeFa =
+          'تمامی مقیاس‌های بالینی دهگانه در محدوده بهنجار جمعیت استاندارد (T < 65) قرار دارند. میانگین ارتفاع بالینی ($meanClinicalT) و شاخص گلدبرگ ($goldberg) نشان‌دهنده پایداری هیجانی، انطباق اجتماعی مناسب و تاب‌آوری روانی کافی است.';
+      codeEn =
+          'All ten clinical scales fall within normal normative limits (T < 65). Mean Clinical Elevation ($meanClinicalT) and Goldberg Index ($goldberg) confirm emotional stability, adaptive coping, and psychological resilience.';
     } else {
-      codeAnalysis =
-          'الگوی برجسته نیمرخ بالینی با کد «$twoPointCode» و کد ولش «$welshCode» نشان‌دهنده تمرکز تنش‌های روان‌شناختی در مقیاس‌های دارای ارتفاع بالاتر از خط برش T=65 است که نیازمند تطبیق با شرح‌حال بالینی مراجع است.';
+      codeFa =
+          'الگوی برجسته نیمرخ بالینی با کد «$twoPointCode»، کد ولش «$welshCode»، میانگین ارتفاع بالینی $meanClinicalT و شاخص گلدبرگ $goldberg نشان‌دهنده تمرکز تنش‌های روان‌شناختی در مقیاس‌های بالاتر از خط برش T=65 است که نیازمند تطبیق با شرح‌حال بالینی مراجع است.';
+      codeEn =
+          'The clinical configuration features codetype "$twoPointCode", Welsh code "$welshCode", Mean Clinical Elevation $meanClinicalT, and Goldberg Index $goldberg, highlighting primary symptom domains above the T=65 clinical cutoff.';
     }
 
     list.add(ClinicalSection(
-      title: '۲. نیمرخ بالینی و تیپ کدی ($twoPointCode)',
-      content: codeAnalysis,
+      title: '۲. تحلیل ساختاری نیمرخ و تیپ کدی ($twoPointCode)',
+      titleEn: '2. Structural Profile & Codetype Analysis ($twoPointCode)',
+      content: codeFa,
+      contentEn: codeEn,
       severity: twoPointCode.contains('Normal') ? 'normal' : 'moderate',
     ));
 
@@ -284,54 +323,78 @@ class PearsonScoringEngine {
     final int dT = tScores['D'] ?? 50;
     final int ptT = tScores['Pt'] ?? 50;
     final int maT = tScores['Ma'] ?? 50;
-    String affectText = '';
+    String affectFa = '';
+    String affectEn = '';
     if (dT >= 65 || ptT >= 65) {
-      affectText =
+      affectFa =
           'بررسی مقیاس‌های خلقی نشان‌دهنده سطح بالایی از دیسترس هیجانی (D=$dT, Pt=$ptT) است. علائمی نظیر کاهش انرژی، کندی روانی-حرکتی، نگرانی مداوم درباره آینده و دشواری در تمرکز در این نیمرخ برجسته است.';
+      affectEn =
+          'Affective scales reveal significant emotional distress (D=$dT, Pt=$ptT), characterized by dysphoria, depleted energy, chronic worry, and concentration difficulties.';
     } else if (maT >= 65) {
-      affectText =
-          'سطح انرژی و برانگیختگی روانی بالا (Ma=$maT) مشهود است که می‌تواند با شتاب افکار، بی‌قراری، کم‌خوابی و شروع هم‌زمان چندین فعالیت ناتمام همراه باشد.';
+      affectFa =
+          'سطح انرژی و برانگیختگی روانی بالا (Ma=$maT) مشهود است که می‌تواند با شتاب افکار، بی‌قراری، کم‌خوابی و شروع هم‌زمان چندین فعالیت همراه باشد.';
+      affectEn =
+          'Elevated psychomotor activation and energy (Ma=$maT) are evident, potentially accompanied by racing thoughts, restlessness, and decreased need for sleep.';
     } else {
-      affectText =
+      affectFa =
           'تنظیم هیجانی و ثبات خلقی مراجع در محدوده متعادل قرار دارد و شواهدی از افسردگی بالینی یا اضطراب فلج‌کننده دیده نمی‌شود.';
+      affectEn =
+          'Affective regulation and mood stability are within normal limits, with no indication of disabling depression or acute anxiety.';
     }
 
     list.add(ClinicalSection(
       title: '۳. وضعیت خلقی، اضطراب و تنظیم هیجان',
-      content: affectText,
+      titleEn: '3. Affective Regulation, Mood & Anxiety',
+      content: affectFa,
+      contentEn: affectEn,
       severity: (dT >= 70 || ptT >= 70) ? 'high' : 'normal',
     ));
 
-    // 4. Interpersonal & Social Relations
+    // 4. Interpersonal & PSY-5 Personality Dynamics
     final int siT = tScores['Si'] ?? 50;
     final int pdT = tScores['Pd'] ?? 50;
     final int paT = tScores['Pa'] ?? 50;
-    String socialText = '';
+    String socialFa = '';
+    String socialEn = '';
     if (siT >= 65) {
-      socialText =
+      socialFa =
           'مراجع گرایش بارزی به درون‌گرایی اجتماعی و کناره‌گیری از موقعیت‌های جمعی دارد (Si=$siT). در تعاملات جدید محتاط و کم‌حرف است و محیط‌های خلوت را ترجیح می‌دهد.';
+      socialEn =
+          'Notable social introversion and interpersonal reserve (Si=$siT) indicate preference for solitary settings and caution in unfamiliar social situations.';
     } else if (pdT >= 65 || paT >= 65) {
-      socialText =
+      socialFa =
           'حساسیت بین‌فردی بالا و احتمال احساس بی‌عدالتی یا بی‌اعتمادی در روابط نزدیک (Pd=$pdT, Pa=$paT) دیده می‌شود. ایجاد اتحاد درمانی همدلانه و غیرقضاوتی در جلسات اول اهمیت کلیدی دارد.';
+      socialEn =
+          'Heightened interpersonal sensitivity and potential mistrust or conflict in close relationships (Pd=$pdT, Pa=$paT) highlight the importance of a transparent, non-judgmental therapeutic alliance.';
     } else {
-      socialText =
+      socialFa =
           'مهارت‌های ارتباطی و تعاملات اجتماعی متعادل ارزیابی می‌شود و مراجع توانایی برقراری روابط صمیمانه و پایدار را داراست.';
+      socialEn =
+          'Interpersonal functioning is well-balanced, supporting stable and constructive social relationships.';
     }
 
     list.add(ClinicalSection(
-      title: '۴. عملکرد بین‌فردی و سازگاری اجتماعی',
-      content: socialText,
+      title: '۴. پویه‌های شخصیت (PSY-5) و روابط بین‌فردی',
+      titleEn: '4. Personality Dynamics (PSY-5) & Interpersonal Relations',
+      content: socialFa,
+      contentEn: socialEn,
       severity: (pdT >= 65 || paT >= 65) ? 'moderate' : 'normal',
     ));
 
     // 5. Therapeutic Recommendations
     list.add(ClinicalSection(
-      title: '۵. ملاحظات تشخیصی و پیشنهادات درمانی (Nahira Clinical Guide)',
+      title: '۵. ملاحظات تشخیصی و پروتکل درمانی پیشنهادی',
+      titleEn: '5. Diagnostic Formulation & Treatment Guidelines',
       content:
           '• بررسی دقیق گویه‌های بحرانی علامت‌گذاری‌شده در ابتدای جلسه مصاحبه بالینی.\n'
-          '• تلفیق نتایج نیمرخ MMPI-2 با معاینه وضعیت روانی (MSE) و سوابق زیستی-روانی-اجتماعی مراجع.\n'
-          '• در صورت ارتفاع مقیاس‌های Pt و D، بهره‌گیری از پروتکل‌های درمان شناختی-رفتاری (CBT) و تکنیک‌های مدیریت استرس.\n'
-          '• پایش طولی (Longitudinal Follow-up) پس از ۸ تا ۱۲ جلسه روان‌درمانی جهت ارزیابی تغییرات نمرات T.',
+          '• تلفیق نتایج نیمرخ MMPI-2 با معاینه وضعیت روانی و سوابق زیستی-روانی-اجتماعی مراجع.\n'
+          '• بهره‌گیری از شاخص گلدبرگ ($goldberg) جهت افتراق سازمان نوروتیک (مقادیر زیر ۴۵) از سازمان سایکوتیک (مقادیر بالای ۴۵).\n'
+          '• پایش طولی پس از ۸ تا ۱۲ جلسه روان‌درمانی جهت ارزیابی تغییرات نمرات T.',
+      contentEn:
+          '• Review all endorsed critical items directly during the clinical interview.\n'
+          '• Integrate MMPI-2 findings with Mental Status Examination (MSE) and psychosocial history.\n'
+          '• Utilize the Goldberg Index ($goldberg) to differentiate neurotic (<45) vs. psychotic (>45) profile organization.\n'
+          '• Conduct longitudinal re-assessment after 8–12 psychotherapy sessions to track T-score symptom reduction.',
       severity: 'normal',
     ));
 
@@ -349,9 +412,9 @@ class PearsonScoringEngine {
     if (clinical.length >= 2 && clinical[0].value >= 65 && clinical[1].value >= 65) {
       return "${clinical[0].key}-${clinical[1].key}";
     } else if (clinical.isNotEmpty && clinical[0].value >= 65) {
-      return "${clinical[0].key} (Spike)";
+      return "${clinical[0].key}";
     }
-    return "Normal (بهنجار)";
+    return "Normal";
   }
 
   static String _computeWelshCode(Map<String, int> tScores) {

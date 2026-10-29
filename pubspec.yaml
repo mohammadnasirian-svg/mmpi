@@ -1,7 +1,7 @@
 name: nahira_mmpi
-description: "Nahira MMPI - 3D Clinical MMPI-2 Assessment Platform by Dr. Mohammad Nasirian & Dr. Nabi Tahkohan (Nasirian.com)"
+description: "Nahira MMPI - 3D Clinical MMPI-2 Assessment Platform by Dr. Mohammad Nasirian & Dr. Nabiollah Kohan (Nasirian.com)"
 publish_to: "none"
-version: 2.0.0+2
+version: 3.0.0+3
 
 environment:
   sdk: ">=3.0.0 <4.0.0"

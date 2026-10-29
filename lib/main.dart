@@ -30,25 +30,29 @@ class NahiraMMPIApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Nahira MMPI',
-      debugShowCheckedModeBanner: false,
-      locale: const Locale('fa', 'IR'),
-      supportedLocales: const [
-        Locale('fa', 'IR'),
-        Locale('en', 'US'),
-      ],
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      theme: ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.dark,
-        colorSchemeSeed: const Color(0xFF06B6D4),
-      ),
-      home: const MainDashboard(),
+    return BlocBuilder<CustomizationCubit, AppCustomizationState>(
+      builder: (context, customState) {
+        return MaterialApp(
+          title: 'Nahira MMPI',
+          debugShowCheckedModeBanner: false,
+          locale: customState.isEn ? const Locale('en', 'US') : const Locale('fa', 'IR'),
+          supportedLocales: const [
+            Locale('fa', 'IR'),
+            Locale('en', 'US'),
+          ],
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          theme: ThemeData(
+            useMaterial3: true,
+            brightness: Brightness.dark,
+            colorSchemeSeed: const Color(0xFF0EA5E9),
+          ),
+          home: const MainDashboard(),
+        );
+      },
     );
   }
 }

@@ -5,24 +5,35 @@ import '../../domain/usecases/pearson_scoring_engine.dart';
 import '../../data/services/sample_question_bank.dart';
 
 class SavedAssessmentRecord {
+  final String id;
   final String clientName;
+  final String nationalCode;
   final int age;
   final String gender;
+  final String education;
+  final String maritalStatus;
   final DateTime date;
   final int totalQuestions;
+  final List<String> answers;
   final PearsonScoringResult result;
 
   const SavedAssessmentRecord({
+    required this.id,
     required this.clientName,
+    this.nationalCode = '',
     required this.age,
     required this.gender,
+    this.education = '',
+    this.maritalStatus = '',
     required this.date,
     required this.totalQuestions,
+    required this.answers,
     required this.result,
   });
 }
 
 class AssessmentState {
+  final bool hasActivePatient;
   final String clientName;
   final String nationalCode;
   final int clientAge;
@@ -42,6 +53,7 @@ class AssessmentState {
   final List<SavedAssessmentRecord> history;
 
   const AssessmentState({
+    required this.hasActivePatient,
     required this.clientName,
     required this.nationalCode,
     required this.clientAge,
@@ -64,16 +76,18 @@ class AssessmentState {
   factory AssessmentState.initial({
     int totalQuestions = 567,
     String gender = 'male',
-    String clientName = 'مراجع کلینیک ناهیرا',
+    bool hasActivePatient = false,
+    String clientName = '',
     String nationalCode = '',
-    int clientAge = 32,
-    String education = 'کارشناسی',
-    String maritalStatus = 'متأهل',
+    int clientAge = 0,
+    String education = '',
+    String maritalStatus = '',
     List<SavedAssessmentRecord> history = const [],
   }) {
     final bank = MMPIQuestionBank.getFullBank(totalQuestions);
     final now = DateTime.now();
     return AssessmentState(
+      hasActivePatient: hasActivePatient,
       clientName: clientName,
       nationalCode: nationalCode,
       clientAge: clientAge,
@@ -94,6 +108,7 @@ class AssessmentState {
   }
 
   AssessmentState copyWith({
+    bool? hasActivePatient,
     String? clientName,
     String? nationalCode,
     int? clientAge,
@@ -113,6 +128,7 @@ class AssessmentState {
     List<SavedAssessmentRecord>? history,
   }) {
     return AssessmentState(
+      hasActivePatient: hasActivePatient ?? this.hasActivePatient,
       clientName: clientName ?? this.clientName,
       nationalCode: nationalCode ?? this.nationalCode,
       clientAge: clientAge ?? this.clientAge,
@@ -144,21 +160,29 @@ class AssessmentState {
 class AssessmentCubit extends Cubit<AssessmentState> {
   AssessmentCubit() : super(AssessmentState.initial());
 
-  void updateClientInfo({
-    String? clientName,
-    String? nationalCode,
-    int? clientAge,
-    String? gender,
-    String? education,
-    String? maritalStatus,
+  void registerClientInfo({
+    required String clientName,
+    String nationalCode = '',
+    required int clientAge,
+    required String gender,
+    String education = '',
+    String maritalStatus = '',
   }) {
     emit(state.copyWith(
-      clientName: clientName,
-      nationalCode: nationalCode,
+      hasActivePatient: true,
+      clientName: clientName.trim(),
+      nationalCode: nationalCode.trim(),
       clientAge: clientAge,
       gender: gender,
-      education: education,
-      maritalStatus: maritalStatus,
+      education: education.trim(),
+      maritalStatus: maritalStatus.trim(),
+    ));
+  }
+
+  void clearActivePatient() {
+    emit(AssessmentState.initial(
+      totalQuestions: state.totalQuestions,
+      history: state.history,
     ));
   }
 
@@ -257,16 +281,31 @@ class AssessmentCubit extends Cubit<AssessmentState> {
       bank: state.questionBank,
     );
 
+    final String displayName = state.clientName.trim().isEmpty
+        ? 'پرونده شماره ${state.history.length + 1}'
+        : state.clientName.trim();
+    final int displayAge = state.clientAge > 0 ? state.clientAge : 30;
+
     final newRecord = SavedAssessmentRecord(
-      clientName: state.clientName,
-      age: state.clientAge,
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      clientName: displayName,
+      nationalCode: state.nationalCode,
+      age: displayAge,
       gender: state.gender,
+      education: state.education,
+      maritalStatus: state.maritalStatus,
       date: DateTime.now(),
       totalQuestions: state.totalQuestions,
+      answers: List<String>.from(state.answers),
       result: result,
     );
 
-    final updatedHistory = [newRecord, ...state.history];
+    final updatedHistory = [
+      newRecord,
+      ...state.history.where((r) =>
+          !(r.clientName == displayName &&
+              DateTime.now().difference(r.date).inSeconds < 15)),
+    ];
 
     emit(state.copyWith(
       scoringResult: result,
@@ -275,10 +314,48 @@ class AssessmentCubit extends Cubit<AssessmentState> {
     ));
   }
 
-  void loadSimulatedProfile(String preset) {
+  void loadSavedRecord(SavedAssessmentRecord record) {
+    final bank = MMPIQuestionBank.getFullBank(record.totalQuestions);
+    emit(state.copyWith(
+      hasActivePatient: true,
+      clientName: record.clientName,
+      nationalCode: record.nationalCode,
+      clientAge: record.age,
+      gender: record.gender,
+      education: record.education,
+      maritalStatus: record.maritalStatus,
+      totalQuestions: record.totalQuestions,
+      answers: List<String>.from(record.answers),
+      questionBank: bank,
+      currentIndex: record.totalQuestions - 1,
+      scoringResult: record.result,
+      isCompleted: true,
+    ));
+  }
+
+  void deleteSavedRecord(String id) {
+    emit(state.copyWith(
+      history: state.history.where((r) => r.id != id).toList(),
+    ));
+  }
+
+  void loadSimulatedProfile(String preset, {bool isEn = false}) {
     final int len = state.totalQuestions;
     final List<String> simAnswers = List.filled(len, 'F');
     final Map<int, int> simTimings = {};
+
+    String simName = state.clientName.trim();
+    if (simName.isEmpty) {
+      if (preset == 'depression_anxiety') {
+        simName = isEn ? 'Sample Case: 2-7 Profile' : 'پرونده نمونه (نیمرخ ۲-۷)';
+      } else if (preset == 'somatization') {
+        simName = isEn ? 'Sample Case: 1-3 Profile' : 'پرونده نمونه (نیمرخ ۱-۳)';
+      } else if (preset == 'paranoid_schizo') {
+        simName = isEn ? 'Sample Case: 6-8 Profile' : 'پرونده نمونه (نیمرخ ۶-۸)';
+      } else {
+        simName = isEn ? 'Sample Case: Normative' : 'پرونده نمونه (بهنجار)';
+      }
+    }
 
     for (int i = 0; i < len; i++) {
       final q = state.questionBank[i];
@@ -307,7 +384,6 @@ class AssessmentCubit extends Cubit<AssessmentState> {
           simAnswers[i] = (i % 3 == 0) ? 'T' : 'F';
         }
       } else {
-        // Balanced / Normal profile
         if (q.trueScales.contains('K') || q.trueScales.contains('S')) {
           simAnswers[i] = (i % 2 == 0) ? 'T' : 'F';
         } else if (q.criticalCategory != null) {
@@ -324,16 +400,26 @@ class AssessmentCubit extends Cubit<AssessmentState> {
       bank: state.questionBank,
     );
 
+    final int simAge = state.clientAge > 0 ? state.clientAge : 34;
+
     final newRecord = SavedAssessmentRecord(
-      clientName: state.clientName,
-      age: state.clientAge,
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      clientName: simName,
+      nationalCode: state.nationalCode,
+      age: simAge,
       gender: state.gender,
+      education: state.education,
+      maritalStatus: state.maritalStatus,
       date: DateTime.now(),
       totalQuestions: state.totalQuestions,
+      answers: simAnswers,
       result: result,
     );
 
     emit(state.copyWith(
+      hasActivePatient: true,
+      clientName: simName,
+      clientAge: simAge,
       answers: simAnswers,
       itemDurationsMs: simTimings,
       currentIndex: len - 1,
@@ -347,6 +433,7 @@ class AssessmentCubit extends Cubit<AssessmentState> {
     emit(AssessmentState.initial(
       totalQuestions: state.totalQuestions,
       gender: state.gender,
+      hasActivePatient: state.hasActivePatient,
       clientName: state.clientName,
       nationalCode: state.nationalCode,
       clientAge: state.clientAge,

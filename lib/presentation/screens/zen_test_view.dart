@@ -14,30 +14,22 @@ class ZenTestView extends StatefulWidget {
 }
 
 class _ZenTestViewState extends State<ZenTestView> {
-  Future<void> _speakText(String text) async {
-    HapticFeedback.selectionClick();
-    SystemSound.play(SystemSoundType.click);
-  }
-
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<CustomizationCubit, AppCustomizationState>(
       builder: (context, customState) {
         final palette = NahiraPalette.fromPreset(customState.visualPreset);
+        final s = customState.strings;
+        final isEn = customState.isEn;
 
-        return BlocConsumer<AssessmentCubit, AssessmentState>(
-          listener: (context, assessState) {
-            if (customState.enableTtsReader) {
-              _speakText(assessState.currentQuestion.text);
-            }
-          },
+        return BlocBuilder<AssessmentCubit, AssessmentState>(
           builder: (context, assessState) {
             final currentQ = assessState.currentQuestion;
             final currentAns = assessState.answers[assessState.currentIndex];
             final changeCount = assessState.changeCounts[assessState.currentIndex] ?? 0;
 
             return Directionality(
-              textDirection: TextDirection.rtl,
+              textDirection: isEn ? TextDirection.ltr : TextDirection.rtl,
               child: Scaffold(
                 body: Container(
                   decoration: BoxDecoration(
@@ -56,7 +48,7 @@ class _ZenTestViewState extends State<ZenTestView> {
                           child: Nahira3DCard(
                             depth: 5,
                             borderRadius: 18,
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                             topColor: palette.cardTop,
                             bottomColor: palette.cardBottom,
                             bevelColor: palette.cardBevel,
@@ -72,7 +64,7 @@ class _ZenTestViewState extends State<ZenTestView> {
                                           onTap: () => Navigator.pop(context),
                                           borderRadius: BorderRadius.circular(10),
                                           child: Container(
-                                            padding: const EdgeInsets.all(6),
+                                            padding: const EdgeInsets.all(7),
                                             decoration: BoxDecoration(
                                               color: palette.accentPrimary.withOpacity(0.15),
                                               borderRadius: BorderRadius.circular(10),
@@ -89,15 +81,16 @@ class _ZenTestViewState extends State<ZenTestView> {
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
                                             Text(
-                                              "سؤال ${assessState.currentIndex + 1} از ${assessState.totalQuestions}",
+                                              "${s.questionWord} ${assessState.currentIndex + 1} ${s.ofWord} ${assessState.totalQuestions}",
                                               style: TextStyle(
                                                 color: palette.textPrimary,
                                                 fontSize: 16,
                                                 fontWeight: FontWeight.w900,
                                               ),
                                             ),
+                                            const SizedBox(height: 2),
                                             Text(
-                                              "پاسخ‌داده‌شده: ${assessState.answeredCount} | بلی: ${assessState.trueCount} | خیر: ${assessState.falseCount}",
+                                              "${s.answeredWord}: ${assessState.answeredCount}  •  ${s.trueAnswerBtn}: ${assessState.trueCount}  •  ${s.falseAnswerBtn}: ${assessState.falseCount}",
                                               style: TextStyle(
                                                 color: palette.textSecondary,
                                                 fontSize: 11.5,
@@ -110,40 +103,22 @@ class _ZenTestViewState extends State<ZenTestView> {
                                     Row(
                                       children: [
                                         IconButton(
-                                          tooltip: "خوانش صوتی سؤال",
-                                          icon: Icon(
-                                            customState.enableTtsReader
-                                                ? Icons.record_voice_over_rounded
-                                                : Icons.voice_over_off_rounded,
-                                            color: customState.enableTtsReader
-                                                ? palette.goldAccent
-                                                : palette.textSecondary,
-                                            size: 22,
-                                          ),
-                                          onPressed: () {
-                                            context.read<CustomizationCubit>().toggleTtsReader();
-                                            if (!customState.enableTtsReader) {
-                                              _speakText(currentQ.text);
-                                            }
-                                          },
-                                        ),
-                                        IconButton(
-                                          tooltip: "نقشه سؤالات",
+                                          tooltip: s.itemMapTitle,
                                           icon: Icon(
                                             Icons.grid_view_rounded,
                                             color: palette.accentPrimary,
                                             size: 22,
                                           ),
-                                          onPressed: () => _showQuestionGridModal(context, assessState, palette),
+                                          onPressed: () => _showQuestionGridModal(context, assessState, palette, s, isEn),
                                         ),
                                         IconButton(
-                                          tooltip: "تنظیمات نمایش سه بعدی",
+                                          tooltip: s.settingsHeader,
                                           icon: Icon(
                                             Icons.tune_rounded,
                                             color: palette.textPrimary,
                                             size: 22,
                                           ),
-                                          onPressed: () => _showSettingsSheet(context, palette),
+                                          onPressed: () => _showQuickDisplaySheet(context, palette, s, isEn),
                                         ),
                                       ],
                                     ),
@@ -154,7 +129,7 @@ class _ZenTestViewState extends State<ZenTestView> {
                                   borderRadius: BorderRadius.circular(8),
                                   child: LinearProgressIndicator(
                                     value: assessState.progress,
-                                    minHeight: 8,
+                                    minHeight: 7,
                                     backgroundColor: Colors.black26,
                                     valueColor: AlwaysStoppedAnimation<Color>(palette.accentPrimary),
                                   ),
@@ -164,39 +139,34 @@ class _ZenTestViewState extends State<ZenTestView> {
                           ),
                         ),
 
-                        // Center 3D Question Stage
+                        // Center Interactive 3D Question Stage
                         Expanded(
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                             child: Center(
                               child: AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 260),
+                                duration: const Duration(milliseconds: 240),
                                 transitionBuilder: (child, animation) {
                                   return ScaleTransition(
-                                    scale: Tween<double>(begin: 0.94, end: 1.0).animate(
+                                    scale: Tween<double>(begin: 0.95, end: 1.0).animate(
                                       CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
                                     ),
                                     child: FadeTransition(opacity: animation, child: child),
                                   );
                                 },
-                                child: Nahira3DCard(
+                                child: NahiraInteractive3DCard(
                                   key: ValueKey<int>(assessState.currentIndex),
-                                  depth: 10,
-                                  tiltX: 0.015,
-                                  borderRadius: 28,
-                                  topColor: palette.cardTop,
-                                  bottomColor: palette.cardBottom,
-                                  bevelColor: palette.cardBevel,
+                                  palette: palette,
+                                  padding: const EdgeInsets.all(24),
                                   glowColor: currentAns == 'T'
                                       ? const Color(0xFF10B981)
                                       : currentAns == 'F'
                                           ? const Color(0xFFF43F5E)
                                           : palette.accentPrimary,
-                                  padding: const EdgeInsets.all(24),
                                   child: Column(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      // Question Number & Scale Badge Row
+                                      // Question Number & Status Badge Row
                                       Row(
                                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                         children: [
@@ -206,17 +176,10 @@ class _ZenTestViewState extends State<ZenTestView> {
                                               gradient: LinearGradient(
                                                 colors: [palette.accentPrimary, palette.accentSecondary],
                                               ),
-                                              borderRadius: BorderRadius.circular(14),
-                                              boxShadow: [
-                                                BoxShadow(
-                                                  color: palette.accentPrimary.withOpacity(0.35),
-                                                  blurRadius: 8,
-                                                  offset: const Offset(0, 3),
-                                                ),
-                                              ],
+                                              borderRadius: BorderRadius.circular(12),
                                             ),
                                             child: Text(
-                                              "گویه شماره ${currentQ.id}",
+                                              "${s.questionWord} ${currentQ.id}",
                                               style: const TextStyle(
                                                 color: Colors.white,
                                                 fontWeight: FontWeight.bold,
@@ -231,7 +194,7 @@ class _ZenTestViewState extends State<ZenTestView> {
                                                 color: (currentAns == 'T'
                                                         ? const Color(0xFF10B981)
                                                         : const Color(0xFFF43F5E))
-                                                    .withOpacity(0.2),
+                                                    .withOpacity(0.16),
                                                 borderRadius: BorderRadius.circular(12),
                                                 border: Border.all(
                                                   color: currentAns == 'T'
@@ -240,7 +203,7 @@ class _ZenTestViewState extends State<ZenTestView> {
                                                 ),
                                               ),
                                               child: Text(
-                                                currentAns == 'T' ? "ثبت‌شده: بلی (درست)" : "ثبت‌شده: خیر (غلط)",
+                                                currentAns == 'T' ? s.recordedTrue : s.recordedFalse,
                                                 style: TextStyle(
                                                   color: currentAns == 'T'
                                                       ? const Color(0xFF34D399)
@@ -254,9 +217,9 @@ class _ZenTestViewState extends State<ZenTestView> {
                                       ),
                                       const SizedBox(height: 28),
 
-                                      // Main Question Text
+                                      // Main Question Text (Localized FA or EN)
                                       Text(
-                                        currentQ.text,
+                                        currentQ.localizedText(isEn),
                                         textAlign: TextAlign.center,
                                         style: TextStyle(
                                           color: palette.textPrimary,
@@ -265,47 +228,24 @@ class _ZenTestViewState extends State<ZenTestView> {
                                           fontWeight: FontWeight.w700,
                                         ),
                                       ),
-                                      const SizedBox(height: 26),
+                                      const SizedBox(height: 24),
 
-                                      // Metadata Footer inside 3D Card
-                                      Wrap(
-                                        spacing: 8,
-                                        runSpacing: 6,
-                                        alignment: WrapAlignment.center,
-                                        children: [
-                                          ...currentQ.trueScales.take(4).map(
-                                                (s) => Container(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                                  decoration: BoxDecoration(
-                                                    color: palette.accentPrimary.withOpacity(0.12),
-                                                    borderRadius: BorderRadius.circular(8),
-                                                  ),
-                                                  child: Text(
-                                                    "مقیاس $s",
-                                                    style: TextStyle(
-                                                      color: palette.textSecondary,
-                                                      fontSize: 10.5,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                          if (changeCount > 0)
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                              decoration: BoxDecoration(
-                                                color: Colors.amber.withOpacity(0.18),
-                                                borderRadius: BorderRadius.circular(8),
-                                              ),
-                                              child: Text(
-                                                "تغییر پاسخ: $changeCount مرتبه",
-                                                style: const TextStyle(
-                                                  color: Colors.amber,
-                                                  fontSize: 10.5,
-                                                ),
-                                              ),
+                                      if (changeCount > 0)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: Colors.amber.withOpacity(0.16),
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: Text(
+                                            "${s.answerChangesCount}: $changeCount",
+                                            style: const TextStyle(
+                                              color: Colors.amber,
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600,
                                             ),
-                                        ],
-                                      ),
+                                          ),
+                                        ),
                                     ],
                                   ),
                                 ),
@@ -314,25 +254,24 @@ class _ZenTestViewState extends State<ZenTestView> {
                           ),
                         ),
 
-                        // Bottom 3D Tactile Thumb-Zone Controls
+                        // Bottom Ergonomic 3D Controls
                         Padding(
                           padding: const EdgeInsets.fromLTRB(18, 4, 18, 16),
                           child: Column(
                             children: [
-                              // True / False 3D Push Buttons
                               Row(
                                 textDirection:
                                     customState.isLeftHanded ? TextDirection.ltr : TextDirection.rtl,
                                 children: [
                                   Expanded(
                                     child: Nahira3DButton(
-                                      label: "بلی / درست",
-                                      sublabel: "موافقم (True)",
+                                      label: s.trueAnswerBtn,
+                                      sublabel: s.trueAnswerSub,
                                       icon: Icons.check_circle_rounded,
                                       primaryColor: const Color(0xFF059669),
                                       darkBevelColor: const Color(0xFF064E3B),
-                                      height: 68,
-                                      fontSize: 19,
+                                      height: 66,
+                                      fontSize: 18,
                                       onTap: () {
                                         context.read<CustomizationCubit>().onTherapistRapidKeyTap('T');
                                         context.read<AssessmentCubit>().answerCurrent('T');
@@ -342,13 +281,13 @@ class _ZenTestViewState extends State<ZenTestView> {
                                   const SizedBox(width: 14),
                                   Expanded(
                                     child: Nahira3DButton(
-                                      label: "خیر / غلط",
-                                      sublabel: "مخالفم (False)",
+                                      label: s.falseAnswerBtn,
+                                      sublabel: s.falseAnswerSub,
                                       icon: Icons.cancel_rounded,
                                       primaryColor: const Color(0xFFE11D48),
                                       darkBevelColor: const Color(0xFF881337),
-                                      height: 68,
-                                      fontSize: 19,
+                                      height: 66,
+                                      fontSize: 18,
                                       onTap: () {
                                         context.read<CustomizationCubit>().onTherapistRapidKeyTap('F');
                                         context.read<AssessmentCubit>().answerCurrent('F');
@@ -365,12 +304,12 @@ class _ZenTestViewState extends State<ZenTestView> {
                                   Expanded(
                                     flex: 2,
                                     child: Nahira3DButton(
-                                      label: "قبلی",
+                                      label: s.prevQuestionBtn,
                                       icon: Icons.navigate_before_rounded,
                                       primaryColor: const Color(0xFF334155),
                                       darkBevelColor: const Color(0xFF0F172A),
                                       height: 48,
-                                      fontSize: 14,
+                                      fontSize: 13.5,
                                       onTap: () => context.read<AssessmentCubit>().previousQuestion(),
                                     ),
                                   ),
@@ -378,7 +317,7 @@ class _ZenTestViewState extends State<ZenTestView> {
                                   Expanded(
                                     flex: 3,
                                     child: Nahira3DButton(
-                                      label: "رد کردن (؟)",
+                                      label: s.skipQuestionBtn,
                                       primaryColor: const Color(0xFF475569),
                                       darkBevelColor: const Color(0xFF1E293B),
                                       height: 48,
@@ -393,12 +332,12 @@ class _ZenTestViewState extends State<ZenTestView> {
                                   Expanded(
                                     flex: 4,
                                     child: Nahira3DButton(
-                                      label: "پایان و کارنامه",
+                                      label: s.finishAndAnalyzeBtn,
                                       icon: Icons.analytics_rounded,
                                       primaryColor: const Color(0xFFD97706),
                                       darkBevelColor: const Color(0xFF78350F),
                                       height: 48,
-                                      fontSize: 14,
+                                      fontSize: 13.5,
                                       onTap: () {
                                         context.read<AssessmentCubit>().calculateScores();
                                         Navigator.pushReplacement(
@@ -429,6 +368,8 @@ class _ZenTestViewState extends State<ZenTestView> {
     BuildContext context,
     AssessmentState assessState,
     NahiraPalette palette,
+    dynamic s,
+    bool isEn,
   ) {
     showModalBottomSheet(
       context: context,
@@ -438,7 +379,7 @@ class _ZenTestViewState extends State<ZenTestView> {
       ),
       builder: (ctx) {
         return Directionality(
-          textDirection: TextDirection.rtl,
+          textDirection: isEn ? TextDirection.ltr : TextDirection.rtl,
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -447,10 +388,10 @@ class _ZenTestViewState extends State<ZenTestView> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      "نقشه سه بعدی سؤالات (${assessState.totalQuestions} گویه)",
+                      "${s.itemMapTitle} (${assessState.totalQuestions})",
                       style: TextStyle(
                         color: palette.textPrimary,
-                        fontSize: 17,
+                        fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -512,7 +453,12 @@ class _ZenTestViewState extends State<ZenTestView> {
     );
   }
 
-  void _showSettingsSheet(BuildContext context, NahiraPalette palette) {
+  void _showQuickDisplaySheet(
+    BuildContext context,
+    NahiraPalette palette,
+    dynamic s,
+    bool isEn,
+  ) {
     showModalBottomSheet(
       context: context,
       backgroundColor: palette.bgBottom,
@@ -524,7 +470,7 @@ class _ZenTestViewState extends State<ZenTestView> {
           builder: (context, state) {
             final cubit = context.read<CustomizationCubit>();
             return Directionality(
-              textDirection: TextDirection.rtl,
+              textDirection: isEn ? TextDirection.ltr : TextDirection.rtl,
               child: Padding(
                 padding: const EdgeInsets.all(22),
                 child: Column(
@@ -532,39 +478,23 @@ class _ZenTestViewState extends State<ZenTestView> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      "تنظیمات محیط سه بعدی Nahira MMPI",
+                      s.ergonomicsTitle,
                       style: TextStyle(
                         color: palette.textPrimary,
-                        fontSize: 18,
+                        fontSize: 17,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    Text(
-                      "تم نوری و عمق سه بعدی:",
-                      style: TextStyle(color: palette.textSecondary, fontSize: 13),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        _presetChip(cubit, state, 'royal_3d', 'رویال سه بعدی (پیش‌فرض)'),
-                        _presetChip(cubit, state, 'amoled_black', 'مشکی AMOLED'),
-                        _presetChip(cubit, state, 'sepia_warm', 'کاغذی گرم (سپیا)'),
-                        _presetChip(cubit, state, 'daylight', 'روشن کلینیکی'),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 14),
                     Row(
                       children: [
-                        Text("اندازه فونت سؤالات:", style: TextStyle(color: palette.textPrimary)),
+                        Text(s.fontSizeTitle, style: TextStyle(color: palette.textPrimary)),
                         Expanded(
                           child: Slider(
                             value: state.questionFontSize,
                             min: 16.0,
-                            max: 30.0,
-                            divisions: 7,
+                            max: 28.0,
+                            divisions: 6,
                             label: "${state.questionFontSize.round()}",
                             onChanged: (val) => cubit.updateFontSize(val),
                           ),
@@ -573,7 +503,7 @@ class _ZenTestViewState extends State<ZenTestView> {
                     ),
                     SwitchListTile(
                       title: Text(
-                        "چیدمان ارگونومیک چپ‌دست‌ها",
+                        s.leftHandedTitle,
                         style: TextStyle(color: palette.textPrimary, fontSize: 14),
                       ),
                       value: state.isLeftHanded,
@@ -581,7 +511,7 @@ class _ZenTestViewState extends State<ZenTestView> {
                     ),
                     SwitchListTile(
                       title: Text(
-                        "افکت صوتی دکمه‌های سه بعدی",
+                        s.soundToggleTitle,
                         style: TextStyle(color: palette.textPrimary, fontSize: 14),
                       ),
                       value: state.enableAudioBeep,
@@ -594,21 +524,6 @@ class _ZenTestViewState extends State<ZenTestView> {
           },
         );
       },
-    );
-  }
-
-  Widget _presetChip(
-    CustomizationCubit cubit,
-    AppCustomizationState state,
-    String key,
-    String label,
-  ) {
-    final selected = state.visualPreset == key;
-    return ChoiceChip(
-      label: Text(label),
-      selected: selected,
-      selectedColor: const Color(0xFF06B6D4),
-      onSelected: (_) => cubit.updateTheme(key),
     );
   }
 }

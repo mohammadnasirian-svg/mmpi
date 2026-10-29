@@ -113,7 +113,7 @@ class _PatientRecordsScreenState extends State<PatientRecordsScreen> {
                       child: Column(
                         children: [
                           Icon(
-                            Icons.clinical_notes_rounded,
+                            Icons.folder_open_rounded,
                             size: 52,
                             color: palette.textSecondary.withOpacity(0.5),
                           ),

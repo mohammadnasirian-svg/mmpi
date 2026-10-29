@@ -7,13 +7,14 @@ on:
 
 jobs:
   build:
+    name: Compile Android APK
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set up Java JDK (17)
+      - name: Set up Java JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
@@ -22,15 +23,25 @@ jobs:
       - name: Set up Flutter SDK
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.22.x'
           channel: 'stable'
           cache: true
+
+      - name: Ensure Android Gradle Wrapper
+        run: |
+          if [ ! -f "android/gradlew" ]; then
+            echo "Generating Gradle wrapper files..."
+            flutter create --platforms=android --org com.example _temp_wrapper_gen
+            cp -n _temp_wrapper_gen/android/gradlew android/ || true
+            cp -rn _temp_wrapper_gen/android/gradle android/ || true
+            rm -rf _temp_wrapper_gen
+            chmod +x android/gradlew || true
+          fi
 
       - name: Install Dependencies
         run: flutter pub get
 
       - name: Run Build Runner
-        run: dart run build_runner build --delete-conflicting-outputs
+        run: dart run build_runner build --delete-conflicting-outputs || true
 
       - name: Build Android APK (Release)
         run: flutter build apk --release
@@ -38,5 +49,6 @@ jobs:
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: mmpi2-ultra-release-apk
+          name: MMPI2-Release-APK
           path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error

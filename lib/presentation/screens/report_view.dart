@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:share_plus/share_plus.dart';
 import '../cubits/customization_cubit.dart';
 import '../cubits/assessment_cubit.dart';
 import '../../domain/models/pearson_scoring_result.dart';
@@ -172,7 +171,12 @@ class _ReportViewState extends State<ReportView> with SingleTickerProviderStateM
                                           icon: Icon(Icons.share_rounded, color: palette.accentPrimary),
                                           onPressed: () {
                                             final txt = _buildFullTextReport(assessState, result);
-                                            Share.share(txt, subject: "گزارش بالینی Nahira MMPI");
+                                            Clipboard.setData(ClipboardData(text: txt));
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              const SnackBar(
+                                                content: Text("متن کامل کارنامه بالینی جهت ارسال کپی شد."),
+                                              ),
+                                            );
                                           },
                                         ),
                                         IconButton(
@@ -796,7 +800,12 @@ class _ReportViewState extends State<ReportView> with SingleTickerProviderStateM
           darkBevelColor: const Color(0xFF075985),
           onTap: () {
             final txt = _buildFullTextReport(state, result);
-            Share.share(txt, subject: "کارنامه بالینی Nahira MMPI");
+            Clipboard.setData(ClipboardData(text: txt));
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text("کارنامه کامل بالینی کپی شد و آماده ارسال در پیام‌رسان‌هاست."),
+              ),
+            );
           },
         ),
       ],

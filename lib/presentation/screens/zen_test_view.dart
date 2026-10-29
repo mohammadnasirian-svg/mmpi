@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_tts/flutter_tts.dart';
 import '../cubits/customization_cubit.dart';
 import '../cubits/assessment_cubit.dart';
 import '../widgets/three_d_widgets.dart';
@@ -14,35 +14,9 @@ class ZenTestView extends StatefulWidget {
 }
 
 class _ZenTestViewState extends State<ZenTestView> {
-  final FlutterTts _tts = FlutterTts();
-  bool _ttsInitialized = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _initTts();
-  }
-
-  Future<void> _initTts() async {
-    try {
-      await _tts.setLanguage("fa-IR");
-      await _tts.setSpeechRate(0.48);
-      _ttsInitialized = true;
-    } catch (_) {}
-  }
-
   Future<void> _speakText(String text) async {
-    if (!_ttsInitialized) return;
-    try {
-      await _tts.stop();
-      await _tts.speak(text);
-    } catch (_) {}
-  }
-
-  @override
-  void dispose() {
-    _tts.stop();
-    super.dispose();
+    HapticFeedback.selectionClick();
+    SystemSound.play(SystemSoundType.click);
   }
 
   @override
@@ -150,8 +124,6 @@ class _ZenTestViewState extends State<ZenTestView> {
                                             context.read<CustomizationCubit>().toggleTtsReader();
                                             if (!customState.enableTtsReader) {
                                               _speakText(currentQ.text);
-                                            } else {
-                                              _tts.stop();
                                             }
                                           },
                                         ),

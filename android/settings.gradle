@@ -6,6 +6,12 @@ pluginManagement {
             localPropertiesFile.withInputStream { properties.load(it) }
         }
         def flutterSdkPath = properties.getProperty("flutter.sdk")
+        if (flutterSdkPath == null) {
+            flutterSdkPath = System.getenv("FLUTTER_ROOT")
+        }
+        if (flutterSdkPath == null) {
+            flutterSdkPath = System.getenv("FLUTTER_HOME")
+        }
         return flutterSdkPath
     }()
 

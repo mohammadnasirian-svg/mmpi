@@ -5,6 +5,8 @@ class QuestionItem {
   final List<String> falseScales;
   final String? criticalCategory;
 
+  String get text => textFa;
+
   const QuestionItem({
     required this.id,
     required this.textFa,
